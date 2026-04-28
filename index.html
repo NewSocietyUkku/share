@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Call</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 10px; }
+        .controls { background: white; padding: 15px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        video { width: 100%; max-width: 400px; background: #000; border-radius: 10px; margin-top: 5px; }
+        input { padding: 12px; width: 85%; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 10px; box-sizing: border-box; }
+        
+        button { padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .copy-btn { background: #6c757d; padding: 5px 10px; font-size: 12px; margin-top: 5px; }
+        
+        .btn-video { background: #007bff; width: 30%; }
+        .btn-voice { background: #28a745; width: 30%; }
+        .btn-end { background: #dc3545; width: 30%; display: none; } /* Hidden until in a call */
+        
+        .action-btns { display: flex; justify-content: space-around; width: 100%; margin-top: 10px; }
+        #my-id { font-family: monospace; color: #d63384; font-weight: bold; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h2>Family Call</h2>
+        <p>Your ID: <span id="my-id">...</span> <br>
+           <button class="copy-btn" onclick="copyId()">Copy ID</button>
+        </p>
+        
+        <input type="text" id="call-to-id" placeholder="Paste ID to Call">
+        
+        <div class="action-btns">
+            <button id="video-btn" class="btn-video">📹 Video</button>
+            <button id="voice-btn" class="btn-voice">📞 Voice</button>
+            <button id="end-btn" class="btn-end">🚫 End</button>
+        </div>
+    </div>
+
+    <div id="video-grid">
+        <div><small>Family</small><br><video id="remote-video" autoplay playsinline></video></div>
+        <div><small>You</small><br><video id="local-video" autoplay muted playsinline></video></div>
+    </div>
+
+    <script>
+        const localVideo = document.getElementById('local-video');
+        const remoteVideo = document.getElementById('remote-video');
+        const endBtn = document.getElementById('end-btn');
+        
+        let localStream;
+        let currentCall; // This stores the active call so we can close it later
+        
+        const peer = new Peer(); 
+
+        peer.on('open', id => document.getElementById('my-id').innerText = id);
+
+        // Get permissions immediately
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true })
+            .then(stream => {
+                localStream = stream;
+                localVideo.srcObject = stream;
+
+                peer.on('call', call => {
+                    const isVideoCall = call.metadata ? call.metadata.video : true;
+                    localStream.getVideoTracks().forEach(track => track.enabled = isVideoCall);
+                    
+                    call.answer(localStream);
+                    handleCall(call);
+                });
+            });
+
+        function makeCall(isVideo) {
+            const id = document.getElementById('call-to-id').value;
+            if (!id) return alert("Paste an ID first!");
+
+            localStream.getVideoTracks().forEach(track => track.enabled = isVideo);
+            const call = peer.call(id, localStream, { metadata: { video: isVideo } });
+            handleCall(call);
+        }
+
+        // Shared logic for both incoming and outgoing calls
+        function handleCall(call) {
+            currentCall = call;
+            endBtn.style.display = "inline-block"; // Show the End button
+
+            call.on('stream', userStream => {
+                remoteVideo.srcObject = userStream;
+            });
+
+            // If the other person hangs up first
+            call.on('close', () => {
+                endCall();
+            });
+        }
+
+        function endCall() {
+            if (currentCall) currentCall.close(); // Close the data connection
+            remoteVideo.srcObject = null; // Clear the other person's video
+            endBtn.style.display = "none"; // Hide the End button
+            alert("Call Ended");
+        }
+
+        document.getElementById('video-btn').addEventListener('click', () => makeCall(true));
+        document.getElementById('voice-btn').addEventListener('click', () => makeCall(false));
+        endBtn.addEventListener('click', endCall);
+
+        function copyId() {
+            navigator.clipboard.writeText(document.getElementById('my-id').innerText);
+            alert("ID Copied!");
+        }
+    </script>
+</body>
+</html>
