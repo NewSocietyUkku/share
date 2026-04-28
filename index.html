@@ -3,113 +3,1047 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Call</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>Text Clipboard - 10 Slots</title>
+
+    <!-- LZ-String for URL compression (cross-device sharing) -->
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js">
+    </script>
+
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 10px; }
-        .controls { background: white; padding: 15px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        video { width: 100%; max-width: 400px; background: #000; border-radius: 10px; margin-top: 5px; }
-        input { padding: 12px; width: 85%; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 10px; box-sizing: border-box; }
-        
-        button { padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        .copy-btn { background: #6c757d; padding: 5px 10px; font-size: 12px; margin-top: 5px; }
-        
-        .btn-video { background: #007bff; width: 30%; }
-        .btn-voice { background: #28a745; width: 30%; }
-        .btn-end { background: #dc3545; width: 30%; display: none; } /* Hidden until in a call */
-        
-        .action-btns { display: flex; justify-content: space-around; width: 100%; margin-top: 10px; }
-        #my-id { font-family: monospace; color: #d63384; font-weight: bold; word-break: break-all; }
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-secondary: #6b7280;
+            --accent: #4f6ef7;
+            --accent-hover: #3b54db;
+            --success: #10b981;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --border: #e5e7eb;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+            --radius: 10px;
+            --radius-sm: 6px;
+            --transition: 0.2s ease;
+            --font-mono: 'SF Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Top Navigation Bar ── */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .app-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+        }
+
+        .save-indicator {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+            transition: color var(--transition);
+        }
+        .save-indicator.saved {
+            color: var(--success);
+        }
+        .save-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            transition: background var(--transition);
+        }
+
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all var(--transition);
+            white-space: nowrap;
+            font-family: inherit;
+            letter-spacing: 0.01em;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .btn-outline {
+            background: var(--card-bg);
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .btn-outline:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: transparent;
+            padding: 6px 10px;
+        }
+        .btn-ghost:hover {
+            background: #f3f4f6;
+            color: var(--text);
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .btn-danger:hover {
+            background: #fef2f2;
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.78rem;
+            border-radius: 5px;
+        }
+        .btn-xs {
+            padding: 3px 8px;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            gap: 3px;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* ── Main Content ── */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+        }
+
+        .slots-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .slots-grid {
+                grid-template-columns: 1fr;
+            }
+            .topbar {
+                padding: 10px 14px;
+                gap: 8px;
+            }
+            .topbar-actions {
+                gap: 4px;
+            }
+            .btn {
+                padding: 7px 10px;
+                font-size: 0.78rem;
+                gap: 4px;
+            }
+            .app-title {
+                font-size: 0.95rem;
+            }
+            .container {
+                padding: 14px 10px 30px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .topbar-actions .btn span.btn-label {
+                display: none;
+            }
+            .btn {
+                padding: 7px 9px;
+            }
+        }
+
+        /* ── Slot Card ── */
+        .slot-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow var(--transition), border-color var(--transition);
+            border: 2px solid transparent;
+            overflow: hidden;
+        }
+        .slot-card:focus-within {
+            border-color: var(--accent);
+            box-shadow: var(--shadow-md), 0 0 0 3px rgba(79, 110, 247, 0.08);
+        }
+        .slot-card.copied-flash {
+            border-color: var(--success);
+            box-shadow: var(--shadow-md), 0 0 0 3px rgba(16, 185, 129, 0.1);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .slot-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px 6px;
+            gap: 8px;
+        }
+
+        .slot-label-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text);
+            padding: 3px 6px;
+            border-radius: 4px;
+            min-width: 0;
+            transition: background var(--transition), box-shadow var(--transition);
+            letter-spacing: 0.01em;
+        }
+        .slot-label-input:hover {
+            background: #f9fafb;
+        }
+        .slot-label-input:focus {
+            outline: none;
+            background: #f0f4ff;
+            box-shadow: 0 0 0 2px rgba(79, 110, 247, 0.2);
+        }
+
+        .slot-number {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            background: #f3f4f6;
+            padding: 2px 8px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            letter-spacing: 0.02em;
+        }
+
+        .slot-textarea {
+            flex: 1;
+            border: none;
+            resize: vertical;
+            min-height: 90px;
+            padding: 8px 14px 10px;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            line-height: 1.6;
+            color: var(--text);
+            background: transparent;
+            outline: none;
+            transition: background var(--transition);
+        }
+        .slot-textarea::placeholder {
+            color: #c5c9d2;
+            font-style: italic;
+        }
+        .slot-textarea:focus {
+            background: #fafbfc;
+        }
+
+        .slot-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 14px 10px;
+            gap: 8px;
+        }
+
+        .char-count {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            font-variant-numeric: tabular-nums;
+            font-family: var(--font-mono);
+        }
+
+        .copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            transition: all var(--transition);
+            font-family: inherit;
+            white-space: nowrap;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .copy-btn:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+            color: var(--text);
+        }
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+        .copy-btn.copied {
+            background: #ecfdf5;
+            border-color: var(--success);
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        /* ── Toast Notifications ── */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+            pointer-events: none;
+            max-width: 380px;
+            width: calc(100% - 40px);
+        }
+        .toast {
+            pointer-events: auto;
+            background: #1a1a2e;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            animation: slideInUp 0.3s ease forwards;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.01em;
+        }
+        .toast.success {
+            border-left: 3px solid var(--success);
+        }
+        .toast.warning {
+            border-left: 3px solid #f59e0b;
+        }
+        .toast.error {
+            border-left: 3px solid var(--danger);
+        }
+        .toast.removing {
+            animation: slideOutDown 0.25s ease forwards;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @keyframes slideOutDown {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        /* ── Hidden file input ── */
+        #importFileInput {
+            display: none;
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #b0b7c3;
+        }
+
+        /* ── Empty state pulse ── */
+        @keyframes subtlePulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        .slot-textarea:placeholder-shown {
+            animation: subtlePulse 2.5s ease-in-out infinite;
+        }
     </style>
 </head>
 <body>
 
-    <div class="controls">
-        <h2>Family Call</h2>
-        <p>Your ID: <span id="my-id">...</span> <br>
-           <button class="copy-btn" onclick="copyId()">Copy ID</button>
-        </p>
-        
-        <input type="text" id="call-to-id" placeholder="Paste ID to Call">
-        
-        <div class="action-btns">
-            <button id="video-btn" class="btn-video">📹 Video</button>
-            <button id="voice-btn" class="btn-voice">📞 Voice</button>
-            <button id="end-btn" class="btn-end">🚫 End</button>
+    <!-- ═══════════════ TOP BAR ═══════════════ -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <div class="logo-icon">📋</div>
+            <span class="app-title">Text Clipboard</span>
+            <span class="save-indicator" id="saveIndicator" title="Auto-save status">
+                <span class="save-dot"></span> <span id="saveText">Ready</span>
+            </span>
         </div>
-    </div>
+        <div class="topbar-actions">
+            <button class="btn btn-outline btn-sm" onclick="exportToFile()" title="Download all data as JSON file">
+                📥 <span class="btn-label">Export</span>
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFileInput').click()" title="Load data from a JSON file">
+                📤 <span class="btn-label">Import</span>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="generateShareURL()" title="Create a shareable link with all your text">
+                🔗 <span class="btn-label">Share Link</span>
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="clearAll()" title="Clear all text areas">
+                🗑 <span class="btn-label">Clear All</span>
+            </button>
+        </div>
+    </header>
 
-    <div id="video-grid">
-        <div><small>Family</small><br><video id="remote-video" autoplay playsinline></video></div>
-        <div><small>You</small><br><video id="local-video" autoplay muted playsinline></video></div>
-    </div>
+    <!-- Hidden file input for import -->
+    <input type="file" id="importFileInput" accept=".json" onchange="importFromFile(event)">
 
+    <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+    <main class="container">
+        <div class="slots-grid" id="slotsGrid">
+            <!-- Slots are generated by JavaScript -->
+        </div>
+    </main>
+
+    <!-- ═══════════════ TOAST CONTAINER ═══════════════ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ═══════════════ SCRIPTS ═══════════════ -->
     <script>
-        const localVideo = document.getElementById('local-video');
-        const remoteVideo = document.getElementById('remote-video');
-        const endBtn = document.getElementById('end-btn');
-        
-        let localStream;
-        let currentCall; // This stores the active call so we can close it later
-        
-        const peer = new Peer(); 
+        (function() {
+            // ────────── Constants ──────────
+            const NUM_SLOTS = 10;
+            const STORAGE_KEY = 'textclipboard_slots_data';
+            const DEBOUNCE_MS = 400;
 
-        peer.on('open', id => document.getElementById('my-id').innerText = id);
+            // ────────── State ──────────
+            let slots = [];
+            let saveTimeout = null;
+            let isProgrammaticUpdate = false; // flag to prevent save loops during load
 
-        // Get permissions immediately
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true })
-            .then(stream => {
-                localStream = stream;
-                localVideo.srcObject = stream;
+            // ────────── DOM Refs ──────────
+            const slotsGrid = document.getElementById('slotsGrid');
+            const saveIndicator = document.getElementById('saveIndicator');
+            const saveTextEl = document.getElementById('saveText');
+            const toastContainer = document.getElementById('toastContainer');
+            const importFileInput = document.getElementById('importFileInput');
 
-                peer.on('call', call => {
-                    const isVideoCall = call.metadata ? call.metadata.video : true;
-                    localStream.getVideoTracks().forEach(track => track.enabled = isVideoCall);
-                    
-                    call.answer(localStream);
-                    handleCall(call);
+            // ────────── Initialize Slots Data ──────────
+            function createDefaultSlots() {
+                const arr = [];
+                for (let i = 0; i < NUM_SLOTS; i++) {
+                    arr.push({ label: `Slot ${i + 1}`, content: '' });
+                }
+                return arr;
+            }
+
+            // ────────── Load from LocalStorage ──────────
+            function loadFromStorage() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed) && parsed.length === NUM_SLOTS) {
+                            // Validate structure
+                            const valid = parsed.every(s => typeof s.label === 'string' && typeof s.content ===
+                                'string');
+                            if (valid) {
+                                return parsed;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse localStorage data, starting fresh.', e);
+                }
+                return createDefaultSlots();
+            }
+
+            // ────────── Save to LocalStorage ──────────
+            function saveToStorage() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(slots));
+                    updateSaveIndicator(true);
+                } catch (e) {
+                    console.error('Failed to save to localStorage:', e);
+                    showToast('⚠️ Could not save — storage may be full.', 'warning');
+                    updateSaveIndicator(false);
+                }
+            }
+
+            function debouncedSave() {
+                updateSaveIndicator(null); // "Saving..."
+                if (saveTimeout) clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    saveToStorage();
+                }, DEBOUNCE_MS);
+            }
+
+            function updateSaveIndicator(status) {
+                // status: true = saved, false = error, null = saving/dirty
+                if (status === true) {
+                    saveIndicator.classList.add('saved');
+                    saveTextEl.textContent = 'Saved';
+                    // Briefly show "Saved" then revert to "Ready"
+                    setTimeout(() => {
+                        if (saveTextEl.textContent === 'Saved') {
+                            saveIndicator.classList.remove('saved');
+                            saveTextEl.textContent = 'Ready';
+                        }
+                    }, 1500);
+                } else if (status === false) {
+                    saveIndicator.classList.remove('saved');
+                    saveTextEl.textContent = 'Error';
+                } else {
+                    saveIndicator.classList.remove('saved');
+                    saveTextEl.textContent = 'Unsaved...';
+                }
+            }
+
+            // ────────── Load from URL Hash (shared link) ──────────
+            function loadFromHash() {
+                const hash = window.location.hash.substring(1); // remove the '#'
+                if (!hash || hash.length < 2) return false;
+
+                try {
+                    let decompressed;
+                    if (typeof LZString !== 'undefined' && LZString.decompressFromEncodedURIComponent) {
+                        decompressed = LZString.decompressFromEncodedURIComponent(hash);
+                    } else {
+                        // Fallback: treat as base64-encoded JSON (less efficient but works without LZString)
+                        decompressed = atob(decodeURIComponent(hash));
+                    }
+
+                    if (!decompressed) {
+                        // Try plain JSON in hash (for very old links or manual editing)
+                        decompressed = hash;
+                    }
+
+                    const parsed = JSON.parse(decompressed);
+                    if (Array.isArray(parsed) && parsed.length === NUM_SLOTS) {
+                        const valid = parsed.every(s => typeof s.label === 'string' && typeof s.content === 'string');
+                        if (valid) {
+                            slots = parsed;
+                            return true;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse URL hash data.', e);
+                }
+                return false;
+            }
+
+            // ────────── Build UI ──────────
+            function buildSlotCards() {
+                slotsGrid.innerHTML = '';
+                slots.forEach((slot, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'slot-card';
+                    card.setAttribute('data-slot-index', index);
+                    card.innerHTML = `
+                        <div class="slot-header">
+                            <input
+                                type="text"
+                                class="slot-label-input"
+                                value="${escapeHTML(slot.label)}"
+                                data-slot-index="${index}"
+                                data-field="label"
+                                placeholder="Label..."
+                                maxlength="60"
+                            >
+                            <span class="slot-number">#${index + 1}</span>
+                        </div>
+                        <textarea
+                            class="slot-textarea"
+                            data-slot-index="${index}"
+                            data-field="content"
+                            placeholder="Paste or type text here…"
+                            rows="4"
+                            spellcheck="true"
+                        >${escapeHTML(slot.content)}</textarea>
+                        <div class="slot-footer">
+                            <span class="char-count" id="charCount${index}">${slot.content.length} chars</span>
+                            <button
+                                class="copy-btn"
+                                data-slot-index="${index}"
+                                title="Copy this text to clipboard"
+                            >
+                                📋 Copy
+                            </button>
+                        </div>
+                    `;
+                    slotsGrid.appendChild(card);
                 });
-            });
 
-        function makeCall(isVideo) {
-            const id = document.getElementById('call-to-id').value;
-            if (!id) return alert("Paste an ID first!");
+                // Attach event listeners
+                attachEventListeners();
+            }
 
-            localStream.getVideoTracks().forEach(track => track.enabled = isVideo);
-            const call = peer.call(id, localStream, { metadata: { video: isVideo } });
-            handleCall(call);
-        }
+            function escapeHTML(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
 
-        // Shared logic for both incoming and outgoing calls
-        function handleCall(call) {
-            currentCall = call;
-            endBtn.style.display = "inline-block"; // Show the End button
+            function attachEventListeners() {
+                // Label inputs
+                const labelInputs = slotsGrid.querySelectorAll('.slot-label-input');
+                labelInputs.forEach(input => {
+                    input.addEventListener('input', handleLabelChange);
+                    input.addEventListener('blur', () => debouncedSave());
+                });
 
-            call.on('stream', userStream => {
-                remoteVideo.srcObject = userStream;
-            });
+                // Textareas
+                const textareas = slotsGrid.querySelectorAll('.slot-textarea');
+                textareas.forEach(textarea => {
+                    textarea.addEventListener('input', handleContentChange);
+                    textarea.addEventListener('blur', () => debouncedSave());
+                });
 
-            // If the other person hangs up first
-            call.on('close', () => {
-                endCall();
-            });
-        }
+                // Copy buttons
+                const copyBtns = slotsGrid.querySelectorAll('.copy-btn');
+                copyBtns.forEach(btn => {
+                    btn.addEventListener('click', handleCopyClick);
+                });
+            }
 
-        function endCall() {
-            if (currentCall) currentCall.close(); // Close the data connection
-            remoteVideo.srcObject = null; // Clear the other person's video
-            endBtn.style.display = "none"; // Hide the End button
-            alert("Call Ended");
-        }
+            function getSlotIndex(el) {
+                return parseInt(el.getAttribute('data-slot-index'), 10);
+            }
 
-        document.getElementById('video-btn').addEventListener('click', () => makeCall(true));
-        document.getElementById('voice-btn').addEventListener('click', () => makeCall(false));
-        endBtn.addEventListener('click', endCall);
+            function handleLabelChange(e) {
+                if (isProgrammaticUpdate) return;
+                const index = getSlotIndex(e.target);
+                if (index >= 0 && index < NUM_SLOTS) {
+                    slots[index].label = e.target.value;
+                    debouncedSave();
+                }
+            }
 
-        function copyId() {
-            navigator.clipboard.writeText(document.getElementById('my-id').innerText);
-            alert("ID Copied!");
-        }
+            function handleContentChange(e) {
+                if (isProgrammaticUpdate) return;
+                const index = getSlotIndex(e.target);
+                if (index >= 0 && index < NUM_SLOTS) {
+                    slots[index].content = e.target.value;
+                    // Update char count live
+                    const charCountEl = document.getElementById('charCount' + index);
+                    if (charCountEl) {
+                        charCountEl.textContent = e.target.value.length + ' chars';
+                    }
+                    debouncedSave();
+                }
+            }
+
+            function handleCopyClick(e) {
+                const btn = e.currentTarget;
+                const index = getSlotIndex(btn);
+                if (index < 0 || index >= NUM_SLOTS) return;
+
+                const text = slots[index].content;
+                copyToClipboard(text, btn);
+            }
+
+            // ────────── Copy to Clipboard ──────────
+            function copyToClipboard(text, btnElement) {
+                if (!text || text.trim() === '') {
+                    showToast('⚠️ This slot is empty — nothing to copy.', 'warning');
+                    return;
+                }
+
+                // Use modern Clipboard API
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        onCopySuccess(btnElement);
+                    }).catch(() => {
+                        fallbackCopy(text, btnElement);
+                    });
+                } else {
+                    fallbackCopy(text, btnElement);
+                }
+            }
+
+            function fallbackCopy(text, btnElement) {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                textarea.style.top = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    onCopySuccess(btnElement);
+                } catch (err) {
+                    showToast('❌ Failed to copy. Please select and copy manually.', 'error');
+                }
+                document.body.removeChild(textarea);
+            }
+
+            function onCopySuccess(btnElement) {
+                // Visual feedback on the button
+                if (btnElement) {
+                    btnElement.classList.add('copied');
+                    btnElement.innerHTML = '✅ Copied!';
+                    // Flash the card
+                    const card = btnElement.closest('.slot-card');
+                    if (card) {
+                        card.classList.add('copied-flash');
+                        setTimeout(() => card.classList.remove('copied-flash'), 600);
+                    }
+                    // Reset button after a moment
+                    setTimeout(() => {
+                        btnElement.classList.remove('copied');
+                        btnElement.innerHTML = '📋 Copy';
+                    }, 1800);
+                }
+                showToast('✅ Text copied to clipboard!', 'success');
+            }
+
+            // ────────── Generate Shareable URL ──────────
+            function generateShareURL() {
+                const jsonStr = JSON.stringify(slots);
+                let compressed;
+
+                if (typeof LZString !== 'undefined' && LZString.compressToEncodedURIComponent) {
+                    compressed = LZString.compressToEncodedURIComponent(jsonStr);
+                } else {
+                    // Fallback
+                    compressed = encodeURIComponent(btoa(jsonStr));
+                }
+
+                // Build the full URL
+                const baseURL = window.location.origin + window.location.pathname;
+                const shareURL = baseURL + '#' + compressed;
+
+                // Check URL length
+                const urlLength = shareURL.length;
+                let warningMsg = '';
+                if (urlLength > 8000) {
+                    warningMsg =
+                        ' ⚠️ The URL is very long and may not work on all platforms. Consider using Export instead.';
+                } else if (urlLength > 3000) {
+                    warningMsg = ' ℹ️ The URL is somewhat long but should work on most modern browsers.';
+                }
+
+                // Copy share URL to clipboard
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(shareURL).then(() => {
+                        showToast('🔗 Share link copied to clipboard!' + warningMsg, urlLength > 3000 ? 'warning' :
+                            'success');
+                    }).catch(() => {
+                        showToast('🔗 Link generated! Copy it from the address bar.' + warningMsg, 'warning');
+                        window.location.hash = compressed;
+                    });
+                } else {
+                    window.location.hash = compressed;
+                    showToast('🔗 Link is now in the address bar — copy it to share!' + warningMsg, 'success');
+                }
+
+                // Update the URL hash
+                window.location.hash = compressed;
+            }
+
+            // ────────── Export to JSON File ──────────
+            function exportToFile() {
+                const data = {
+                    version: 1,
+                    timestamp: new Date().toISOString(),
+                    app: 'Text Clipboard',
+                    slots: slots,
+                };
+
+                const jsonStr = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                const filename = 'text-clipboard-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showToast('📥 Exported as "' + filename + '"', 'success');
+            }
+
+            // ────────── Import from JSON File ──────────
+            function importFromFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+
+                        // Support both wrapped and raw formats
+                        let importedSlots;
+                        if (data.slots && Array.isArray(data.slots) && data.slots.length === NUM_SLOTS) {
+                            importedSlots = data.slots;
+                        } else if (Array.isArray(data) && data.length === NUM_SLOTS) {
+                            importedSlots = data;
+                        } else {
+                            throw new Error(
+                                'Invalid format: expected an array of ' + NUM_SLOTS + ' slot objects.');
+                        }
+
+                        // Validate each slot
+                        importedSlots.forEach((s, i) => {
+                            if (typeof s.label !== 'string' || typeof s.content !== 'string') {
+                                throw new Error('Invalid slot data at position ' + (i + 1));
+                            }
+                        });
+
+                        slots = importedSlots;
+                        isProgrammaticUpdate = true;
+                        buildSlotCards();
+                        isProgrammaticUpdate = false;
+                        saveToStorage();
+                        showToast('📤 Successfully imported ' + NUM_SLOTS + ' slots!', 'success');
+
+                    } catch (err) {
+                        console.error('Import failed:', err);
+                        showToast('❌ Import failed: ' + err.message, 'error');
+                    }
+                };
+                reader.onerror = function() {
+                    showToast('❌ Could not read the file.', 'error');
+                };
+                reader.readAsText(file);
+
+                // Reset file input so the same file can be re-imported
+                event.target.value = '';
+            }
+
+            // ────────── Clear All ──────────
+            function clearAll() {
+                const hasContent = slots.some(s => s.content.trim().length > 0 || s.label !==
+                    `Slot ${slots.indexOf(s) + 1}`);
+                if (!hasContent) {
+                    showToast('ℹ️ All slots are already empty.', 'warning');
+                    return;
+                }
+
+                // Simple confirmation
+                if (!confirm('Are you sure you want to clear ALL text from all ' + NUM_SLOTS +
+                        ' slots? This cannot be undone.')) {
+                    return;
+                }
+
+                slots = createDefaultSlots();
+                isProgrammaticUpdate = true;
+                buildSlotCards();
+                isProgrammaticUpdate = false;
+                saveToStorage();
+                window.location.hash = '';
+                showToast('🗑 All slots cleared.', 'success');
+            }
+
+            // ────────── Toast System ──────────
+            function showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                toast.className = 'toast ' + type;
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+
+                // Auto-dismiss after 3.5 seconds
+                const dismissTimeout = setTimeout(() => {
+                    removeToast(toast);
+                }, 3500);
+
+                // Allow click to dismiss early
+                toast.addEventListener('click', () => {
+                    clearTimeout(dismissTimeout);
+                    removeToast(toast);
+                });
+
+                // Limit number of visible toasts
+                const allToasts = toastContainer.querySelectorAll('.toast');
+                if (allToasts.length > 4) {
+                    removeToast(allToasts[0]);
+                }
+            }
+
+            function removeToast(toast) {
+                if (!toast || toast.classList.contains('removing')) return;
+                toast.classList.add('removing');
+                toast.addEventListener('animationend', () => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, { once: true });
+                // Fallback removal
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+
+            // ────────── Expose functions to global scope (for onclick handlers) ──────────
+            window.generateShareURL = generateShareURL;
+            window.exportToFile = exportToFile;
+            window.importFromFile = importFromFile;
+            window.clearAll = clearAll;
+
+            // ────────── Initialize ──────────
+            function init() {
+                // 1. Check URL hash first (shared link)
+                const loadedFromHash = loadFromHash();
+
+                // 2. If no hash data, load from localStorage
+                if (!loadedFromHash) {
+                    slots = loadFromStorage();
+                }
+
+                // 3. Build the UI
+                isProgrammaticUpdate = true;
+                buildSlotCards();
+                isProgrammaticUpdate = false;
+
+                // 4. If loaded from hash, save to localStorage immediately
+                if (loadedFromHash) {
+                    saveToStorage();
+                    showToast('📋 Data loaded from shared link & saved locally!', 'success');
+                } else {
+                    updateSaveIndicator(true);
+                }
+
+                // 5. Listen for hash changes (in case user navigates with a new shared link)
+                window.addEventListener('hashchange', () => {
+                    if (loadFromHash()) {
+                        isProgrammaticUpdate = true;
+                        buildSlotCards();
+                        isProgrammaticUpdate = false;
+                        saveToStorage();
+                        showToast('📋 Data loaded from shared link!', 'success');
+                    }
+                });
+
+                console.log(
+                    `✅ Text Clipboard ready — ${NUM_SLOTS} slots available.\n💡 Paste text into any slot. It auto-saves locally.\n🔗 Use "Share Link" to access your text on another device.\n📥 Use "Export" / "Import" for file-based backup.`
+                );
+            }
+
+            // ────────── Start the app ──────────
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })();
     </script>
 </body>
 </html>
